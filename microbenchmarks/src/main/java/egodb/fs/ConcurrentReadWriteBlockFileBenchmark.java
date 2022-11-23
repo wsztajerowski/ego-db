@@ -1,5 +1,14 @@
 package egodb.fs;
 
+import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.infra.BenchmarkParams;
+import org.openjdk.jmh.infra.ThreadParams;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 /**
  * IMPLEMENT:
  *
@@ -16,4 +25,54 @@ package egodb.fs;
  */
 public class ConcurrentReadWriteBlockFileBenchmark
 {
+    public static int blockSize = 4096;
+
+    @State(Scope.Benchmark)
+    public static class BlockParams {
+        Path testFile;
+        BlockFile blockFile;
+        @Setup
+        public void setup(BenchmarkParams params) throws IOException {
+            int[] threadGroups = params.getThreadGroups();
+            int maxNumberOfThreads = Math.max(threadGroups[0], threadGroups[1]);
+            testFile = Files.createTempFile("block", ".dat");
+            blockFile = BlockFile.create( testFile, blockSize, maxNumberOfThreads );
+        }
+        @TearDown
+        public void tearDown() throws Exception {
+            blockFile.close();
+            Files.deleteIfExists(testFile);
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class SingleThreadParams {
+        ByteBuffer buffer;
+        int operatingBlockNumber;
+        @Setup
+        public void setup(ThreadParams params){
+            buffer = ByteBuffer.allocate(blockSize);
+            operatingBlockNumber = params.getSubgroupThreadIndex();
+        }
+    }
+
+    @Benchmark
+    @Group("blockFileGroup")
+    @GroupThreads(4)
+    public ByteBuffer readBenchmark(BlockParams blockParams, SingleThreadParams singleThreadParams) throws IOException {
+        ByteBuffer buffer = singleThreadParams.buffer;
+        buffer.rewind();
+        blockParams.blockFile.read(buffer, singleThreadParams.operatingBlockNumber);
+        return buffer;
+    }
+
+    @Benchmark
+    @Group("blockFileGroup")
+    @GroupThreads(2)
+    public ByteBuffer writeBenchmark(BlockParams blockParams, SingleThreadParams singleThreadParams) throws IOException {
+        ByteBuffer buffer = singleThreadParams.buffer;
+        buffer.rewind();
+        blockParams.blockFile.write(buffer, singleThreadParams.operatingBlockNumber);
+        return buffer;
+    }
 }
