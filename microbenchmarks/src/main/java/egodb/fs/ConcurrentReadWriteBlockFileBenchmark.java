@@ -36,7 +36,7 @@ public class ConcurrentReadWriteBlockFileBenchmark
             int[] threadGroups = params.getThreadGroups();
             int maxNumberOfThreads = Math.max(threadGroups[0], threadGroups[1]);
             testFile = Files.createTempFile("block", ".dat");
-            blockFile = BlockFile.create( testFile, blockSize, maxNumberOfThreads );
+            blockFile = BlockFile.create( testFile, blockSize, maxNumberOfThreads*16 );
         }
         @TearDown
         public void tearDown() throws Exception {
@@ -47,12 +47,19 @@ public class ConcurrentReadWriteBlockFileBenchmark
 
     @State(Scope.Thread)
     public static class SingleThreadParams {
+
         ByteBuffer buffer;
         int operatingBlockNumber;
+        int executionCounter;
+
+        public int getBlockNumber(){
+            return operatingBlockNumber + (executionCounter++)%16;
+        }
+
         @Setup
         public void setup(ThreadParams params){
             buffer = ByteBuffer.allocate(blockSize);
-            operatingBlockNumber = params.getSubgroupThreadIndex();
+            operatingBlockNumber = params.getSubgroupThreadIndex() * 16;
         }
     }
 
@@ -62,7 +69,7 @@ public class ConcurrentReadWriteBlockFileBenchmark
     public ByteBuffer readBenchmark(BlockParams blockParams, SingleThreadParams singleThreadParams) throws IOException {
         ByteBuffer buffer = singleThreadParams.buffer;
         buffer.rewind();
-        blockParams.blockFile.read(buffer, singleThreadParams.operatingBlockNumber);
+        blockParams.blockFile.read(buffer, singleThreadParams.getBlockNumber());
         return buffer;
     }
 
@@ -72,7 +79,7 @@ public class ConcurrentReadWriteBlockFileBenchmark
     public ByteBuffer writeBenchmark(BlockParams blockParams, SingleThreadParams singleThreadParams) throws IOException {
         ByteBuffer buffer = singleThreadParams.buffer;
         buffer.rewind();
-        blockParams.blockFile.write(buffer, singleThreadParams.operatingBlockNumber);
+        blockParams.blockFile.write(buffer, singleThreadParams.getBlockNumber());
         return buffer;
     }
 }
