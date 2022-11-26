@@ -1,13 +1,27 @@
+/*
+ * Copyright © 2022 Symentis.pl (jaroslaw.palka@symentis.pl)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package egodb.fs;
-
-import org.openjdk.jmh.annotations.*;
-import org.openjdk.jmh.infra.BenchmarkParams;
-import org.openjdk.jmh.infra.ThreadParams;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.infra.BenchmarkParams;
+import org.openjdk.jmh.infra.ThreadParams;
 
 /**
  * IMPLEMENT:
@@ -23,21 +37,23 @@ import java.nio.file.Path;
  * <li> it is ok for read threads to compete with write threads for access to blocks</li>
  * </uL>
  */
-public class ConcurrentReadWriteBlockFileBenchmark
-{
+public class SequentialConcurrentReadWriteBlockFileBenchmark {
+    private static final int BLOCK_SEQUENCE_SIZE = 256;
     public static int blockSize = 4096;
 
     @State(Scope.Benchmark)
     public static class BlockParams {
         Path testFile;
         BlockFile blockFile;
+
         @Setup
         public void setup(BenchmarkParams params) throws IOException {
             int[] threadGroups = params.getThreadGroups();
             int maxNumberOfThreads = Math.max(threadGroups[0], threadGroups[1]);
             testFile = Files.createTempFile("block", ".dat");
-            blockFile = BlockFile.create( testFile, blockSize, maxNumberOfThreads*16 );
+            blockFile = BlockFile.create(testFile, blockSize, maxNumberOfThreads * BLOCK_SEQUENCE_SIZE);
         }
+
         @TearDown
         public void tearDown() throws Exception {
             blockFile.close();
@@ -52,14 +68,14 @@ public class ConcurrentReadWriteBlockFileBenchmark
         int operatingBlockNumber;
         int executionCounter;
 
-        public int getBlockNumber(){
-            return operatingBlockNumber + (executionCounter++)%16;
+        public int getBlockNumber() {
+            return operatingBlockNumber + (executionCounter++) % BLOCK_SEQUENCE_SIZE;
         }
 
         @Setup
-        public void setup(ThreadParams params){
+        public void setup(ThreadParams params) {
             buffer = ByteBuffer.allocate(blockSize);
-            operatingBlockNumber = params.getSubgroupThreadIndex() * 16;
+            operatingBlockNumber = params.getSubgroupThreadIndex() * BLOCK_SEQUENCE_SIZE;
         }
     }
 
@@ -76,7 +92,8 @@ public class ConcurrentReadWriteBlockFileBenchmark
     @Benchmark
     @Group("blockFileGroup")
     @GroupThreads(2)
-    public ByteBuffer writeBenchmark(BlockParams blockParams, SingleThreadParams singleThreadParams) throws IOException {
+    public ByteBuffer writeBenchmark(BlockParams blockParams, SingleThreadParams singleThreadParams)
+            throws IOException {
         ByteBuffer buffer = singleThreadParams.buffer;
         buffer.rewind();
         blockParams.blockFile.write(buffer, singleThreadParams.getBlockNumber());
