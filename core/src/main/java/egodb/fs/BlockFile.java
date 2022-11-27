@@ -116,7 +116,7 @@ public class BlockFile implements AutoCloseable, Iterable<ByteBuffer> {
         fileChannel.close();
     }
 
-    public record Header(int version, int blockSize, long numberOfBlocks) {
+    public record Header(int version, int blockSize, long numberOfBlocks, Flag... flags) {
 
         private static void write(int blockSize, long numberOfBlocks, DataOutputStream outputStream)
                 throws IOException {
@@ -146,6 +146,16 @@ public class BlockFile implements AutoCloseable, Iterable<ByteBuffer> {
                     var headerNumberOfBlocks = inputStream.readLong();
                     return new Header(headerVersion, headerBlockSize, headerNumberOfBlocks);
                 }
+            }
+        }
+
+        public enum Flag {
+            CLOSED((byte) 0x01);
+
+            private final byte value;
+
+            Flag(byte value) {
+                this.value = value;
             }
         }
     }
