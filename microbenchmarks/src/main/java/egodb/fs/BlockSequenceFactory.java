@@ -20,7 +20,7 @@ import org.apache.commons.lang3.ArrayUtils;
 
 public class BlockSequenceFactory {
     private final int numberOfBlocks;
-    private AccessStrategy accessStrategy;
+    private DiscAccessStrategy accessStrategy;
 
     public BlockSequenceFactory(int numberOfBlocks) {
         this.numberOfBlocks = numberOfBlocks;
@@ -30,8 +30,8 @@ public class BlockSequenceFactory {
         return new BlockSequenceFactory(numberOfBlocks);
     }
 
-    public BlockSequenceFactory withStrategy(String accessStrategy) {
-        this.accessStrategy = AccessStrategy.valueOf(accessStrategy);
+    public BlockSequenceFactory withDiskAccessStrategy(String accessStrategy) {
+        this.accessStrategy = DiscAccessStrategy.valueOf(accessStrategy);
         return this;
     }
 

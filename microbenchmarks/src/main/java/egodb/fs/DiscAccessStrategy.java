@@ -15,7 +15,7 @@
  */
 package egodb.fs;
 
-public enum AccessStrategy {
+public enum DiscAccessStrategy {
     SEQUENTIAL,
     RANDOM,
     ;

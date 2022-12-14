@@ -45,7 +45,7 @@ public class ConcurrentReadWriteBlockFileBenchmark {
     public static int blockSize;
 
     @Param({"SEQUENTIAL"})
-    public String discAccessStrategy;
+    public String discAccess;
 
     Path testFile;
     BlockFile blockFile;
@@ -61,7 +61,7 @@ public class ConcurrentReadWriteBlockFileBenchmark {
         blockFile = BlockFile.create(testFile, blockSize, numberOfBlocks);
 
         blockSequence = BlockSequenceFactory.withSize(numberOfBlocks)
-                .withStrategy(discAccessStrategy)
+                .withDiskAccessStrategy(discAccess)
                 .generateSequence();
     }
 
