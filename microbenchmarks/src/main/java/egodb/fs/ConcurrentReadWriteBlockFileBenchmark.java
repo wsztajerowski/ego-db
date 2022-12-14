@@ -37,28 +37,38 @@ import org.openjdk.jmh.infra.ThreadParams;
  * <li> it is ok for read threads to compete with write threads for access to blocks</li>
  * </uL>
  */
-public class SequentialConcurrentReadWriteBlockFileBenchmark {
+@State(Scope.Benchmark)
+public class ConcurrentReadWriteBlockFileBenchmark {
     private static final int BLOCK_SEQUENCE_SIZE = 256;
-    public static int blockSize = 4096;
 
-    @State(Scope.Benchmark)
-    public static class BlockParams {
-        Path testFile;
-        BlockFile blockFile;
+    @Param({"4096"})
+    public static int blockSize;
 
-        @Setup
-        public void setup(BenchmarkParams params) throws IOException {
-            int[] threadGroups = params.getThreadGroups();
-            int maxNumberOfThreads = Math.max(threadGroups[0], threadGroups[1]);
-            testFile = Files.createTempFile("block", ".dat");
-            blockFile = BlockFile.create(testFile, blockSize, maxNumberOfThreads * BLOCK_SEQUENCE_SIZE);
-        }
+    @Param({"SEQUENTIAL"})
+    public String discAccessStrategy;
 
-        @TearDown
-        public void tearDown() throws Exception {
-            blockFile.close();
-            Files.deleteIfExists(testFile);
-        }
+    Path testFile;
+    BlockFile blockFile;
+
+    private long[] blockSequence;
+
+    @Setup
+    public void setup(BenchmarkParams params) throws IOException {
+        int[] threadGroups = params.getThreadGroups();
+        int maxNumberOfThreads = Math.max(threadGroups[0], threadGroups[1]);
+        testFile = Files.createTempFile("block", ".dat");
+        int numberOfBlocks = maxNumberOfThreads * BLOCK_SEQUENCE_SIZE;
+        blockFile = BlockFile.create(testFile, blockSize, numberOfBlocks);
+
+        blockSequence = BlockSequenceFactory.withSize(numberOfBlocks)
+                .withStrategy(discAccessStrategy)
+                .generateSequence();
+    }
+
+    @TearDown
+    public void tearDown() throws Exception {
+        blockFile.close();
+        Files.deleteIfExists(testFile);
     }
 
     @State(Scope.Thread)
@@ -68,7 +78,7 @@ public class SequentialConcurrentReadWriteBlockFileBenchmark {
         int operatingBlockNumber;
         int executionCounter;
 
-        public int getBlockNumber() {
+        public int getBlockIndex() {
             return operatingBlockNumber + (executionCounter++) % BLOCK_SEQUENCE_SIZE;
         }
 
@@ -82,21 +92,22 @@ public class SequentialConcurrentReadWriteBlockFileBenchmark {
     @Benchmark
     @Group("blockFileGroup")
     @GroupThreads(4)
-    public ByteBuffer readBenchmark(BlockParams blockParams, SingleThreadParams singleThreadParams) throws IOException {
+    public ByteBuffer readBenchmark(SingleThreadParams singleThreadParams) throws IOException {
         ByteBuffer buffer = singleThreadParams.buffer;
         buffer.rewind();
-        blockParams.blockFile.read(buffer, singleThreadParams.getBlockNumber());
+        long blockNumber = blockSequence[singleThreadParams.getBlockIndex()];
+        blockFile.read(buffer, blockNumber);
         return buffer;
     }
 
     @Benchmark
     @Group("blockFileGroup")
     @GroupThreads(2)
-    public ByteBuffer writeBenchmark(BlockParams blockParams, SingleThreadParams singleThreadParams)
-            throws IOException {
+    public ByteBuffer writeBenchmark(SingleThreadParams singleThreadParams) throws IOException {
         ByteBuffer buffer = singleThreadParams.buffer;
         buffer.rewind();
-        blockParams.blockFile.write(buffer, singleThreadParams.getBlockNumber());
+        long blockNumber = blockSequence[singleThreadParams.getBlockIndex()];
+        blockFile.write(buffer, blockNumber);
         return buffer;
     }
 }

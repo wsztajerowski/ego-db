@@ -86,6 +86,7 @@
                             <exclude>mvnw.cmd</exclude>
                             <exclude>**/*.md</exclude>
                             <exclude>LICENSE.txt</exclude>
+                            <exclude>**/egodb.fs.*/**</exclude>
                         </excludes>
                         <properties>
                             <project.inceptionYear>2022</project.inceptionYear>
