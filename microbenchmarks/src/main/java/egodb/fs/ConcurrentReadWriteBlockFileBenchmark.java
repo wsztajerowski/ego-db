@@ -47,6 +47,9 @@ public class ConcurrentReadWriteBlockFileBenchmark {
     @Param({"SEQUENTIAL"})
     public String discAccess;
 
+    @Param({"ON_HEAP"})
+    public static String bufferAllocation;
+
     Path testFile;
     BlockFile blockFile;
 
@@ -73,19 +76,24 @@ public class ConcurrentReadWriteBlockFileBenchmark {
 
     @State(Scope.Thread)
     public static class SingleThreadParams {
+        private ByteBuffer buffer;
+        private int operatingBlockNumber;
+        private int executionCounter;
 
-        ByteBuffer buffer;
-        int operatingBlockNumber;
-        int executionCounter;
+        @Setup
+        public void setup(ThreadParams params) {
+            buffer = ByteBufferFactory.withSize(blockSize)
+                    .withAllocationStrategy(bufferAllocation)
+                    .createBuffer();
+            operatingBlockNumber = params.getSubgroupThreadIndex() * BLOCK_SEQUENCE_SIZE;
+        }
 
         public int getBlockIndex() {
             return operatingBlockNumber + (executionCounter++) % BLOCK_SEQUENCE_SIZE;
         }
 
-        @Setup
-        public void setup(ThreadParams params) {
-            buffer = ByteBuffer.allocate(blockSize);
-            operatingBlockNumber = params.getSubgroupThreadIndex() * BLOCK_SEQUENCE_SIZE;
+        public ByteBuffer getBuffer() {
+            return buffer;
         }
     }
 
@@ -93,7 +101,7 @@ public class ConcurrentReadWriteBlockFileBenchmark {
     @Group("blockFileGroup")
     @GroupThreads(4)
     public ByteBuffer readBenchmark(SingleThreadParams singleThreadParams) throws IOException {
-        ByteBuffer buffer = singleThreadParams.buffer;
+        ByteBuffer buffer = singleThreadParams.getBuffer();
         buffer.rewind();
         long blockNumber = blockSequence[singleThreadParams.getBlockIndex()];
         blockFile.read(buffer, blockNumber);
@@ -104,7 +112,7 @@ public class ConcurrentReadWriteBlockFileBenchmark {
     @Group("blockFileGroup")
     @GroupThreads(2)
     public ByteBuffer writeBenchmark(SingleThreadParams singleThreadParams) throws IOException {
-        ByteBuffer buffer = singleThreadParams.buffer;
+        ByteBuffer buffer = singleThreadParams.getBuffer();
         buffer.rewind();
         long blockNumber = blockSequence[singleThreadParams.getBlockIndex()];
         blockFile.write(buffer, blockNumber);
